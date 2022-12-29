@@ -1,5 +1,25 @@
 import sep
 import numpy as np
+import astropy.units as u
+import json
+import requests
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.linear_model import HuberRegressor, Ridge
+
+
+try: # Python 3.x
+    from urllib.parse import quote as urlencode
+    from urllib.request import urlretrieve
+except ImportError:  # Python 2.x
+    from urllib import pathname2url as urlencode
+    from urllib import urlretrieve
+
+try: # Python 3.x
+    import http.client as httplib 
+except ImportError:  # Python 2.x
+    import httplib 
+
 
 
 def Select_largest_flux(data_sub, objects, na=6):
@@ -157,7 +177,7 @@ def DoCalibration(repo, visit, ccdnum, collection_diff, config='SIBLING'):
     """
     Calibrate stars doing a Huber regression 
     """
-    stars = get_fluxes_from_stars(repo, visit, ccdnum, collection_diff)
+    stars = getFluxesFromStars(repo, visit, ccdnum, collection_diff)
     print('Doing photometric calibration with {} stars'.format(len(stars)))
     
     #ps1_flux = np.array(stars.Panstarss_dr1_flx)#.reshape(-1, 1)
