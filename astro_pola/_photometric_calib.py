@@ -22,25 +22,7 @@ except ImportError:  # Python 2.x
 
 
 
-def Select_largest_flux(data_sub, objects, na=6):
-    """
-    Uses source extractor to select the brightest detected source
-
-    Input
-    -----
-    data_sub : [np.matrix]
-    objects : 
-    na :
-
-    Output
-    -----
-    objects, j 
-    """
-    flux, fluxerr, flag = sep.sum_circle(data_sub, objects['x'], objects['y'],na*objects['a'])
-    print(flux)
-    j, = np.where(flux == max(flux))
-    
-    return objects, j    
+  
 
 def flux_profile(exposure, ra, dec , rmin, rmax, title_plot = '', save_plot =False, field=None, name =None):
     """

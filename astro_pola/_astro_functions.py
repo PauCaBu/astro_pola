@@ -1,7 +1,15 @@
 import numpy as np 
 import astropy 
 import pandas as pd
-
+import pickle
+import os
+from astropy.utils.data import get_pkg_data_filename
+from astropy.io import fits
+from astropy.convolution import Gaussian2DKernel
+from scipy.signal import convolve as scipy_convolve
+from astropy.convolution import convolve
+from matplotlib.colors import LogNorm
+import sep 
 
 
 def compare_to(directory, sfx, factor, beforeDate=57072):
@@ -179,3 +187,161 @@ def ABMagToFluxJy(mab, mab_err=None):
         return f, f_err
     else:
         return f
+
+
+def convolve(path, field, worst_seeing):
+    """
+    Convolving images
+
+    input:
+    -----
+    path : [string] path to the fits images 
+    field : [string] name of the field
+    worst_seeing : [float]
+
+    output:
+    ------
+
+
+    
+    """
+    #worst_seeing = 1.44175923
+    sigma2fwhm = 2.*np.sqrt(2.*np.log(2.)) 
+    stdev = worst_seeing/sigma2fwhm
+    arcsec_to_pixel = 0.27#626 # arcsec/pixel
+    stdev/=arcsec_to_pixel # we transform to pixel values 
+    kernel = Gaussian2DKernel(x_stddev=stdev)
+
+    #directory = 'Blind15A_16_N24'
+
+    file = '{}_convolved.pickle'.format(field)
+
+    if not os.path.exists(file):
+        # convolve images if file doesnt exist
+
+        convolved_images = {}
+        
+        # Here I convolve all the images in the Blind15A_16_N24 directory, and save them in 
+        # the convolved_images dictionary 
+
+        for filename in os.listdir(path):
+            if filename.endswith('.fits'):
+                fitsfile = get_pkg_data_filename(path+'/'+filename)
+                img = fits.open(fitsfile)[1]
+                astropy_conv = convolve(img.data, kernel)
+                visit = filename.split('_')[11]
+                convolved_images[visit] = astropy_conv
+                
+        with open(file, 'wb') as handle:
+            
+            pickle.dump(convolved_images, handle, protocol = pickle.HIGHEST_PROTOCOL)
+    else:
+        # load convolve images 
+        with open(file, 'rb') as handle:
+            convolved_images = pickle.load(handle)
+
+    return convolved_images
+
+
+
+### centering codes for photometry ####
+
+def center_brightest_zone(data, thresh, area):
+    """
+    
+    retrieves x and y position of the brightest source 
+    in the data matrix
+
+    input:
+    -----
+    data
+    thresh
+    area
+
+    output:
+    ------
+    x, y 
+
+    """
+    objects = sep.extract(data, thresh, minarea=area)
+    obj, j = Select_largest_flux(data, objects)
+    return obj['x'], obj['y']
+
+# select largest flux
+
+def Select_largest_flux(data_sub, objects, na=6):
+    """
+    Uses source extractor to select the brightest detected source
+
+    Input
+    -----
+    data_sub : [np.matrix]
+    objects : 
+    na :
+
+    Output
+    -----
+    objects, j 
+    """
+    flux, fluxerr, flag = sep.sum_circle(data_sub, objects['x'], objects['y'],na*objects['a'])
+    print(flux)
+    j, = np.where(flux == max(flux))
+    
+    return objects, j  
+
+# Finding peak element in a 2D Array.
+
+def findPeakGrid(mat):
+    """
+    author : https://www.geeksforgeeks.org/find-peak-element-2d-array/
+
+    finds the peak value in a 2d array
+
+    input:
+    -----
+    mat : [2D ndarray]
+
+    output:
+    ------
+    [x,y] : x and y coordinates of the peak value
+    
+    """
+
+    stcol = 0
+    endcol = len(mat[0]) - 1; # Starting po  end po of Search Space
+ 
+    while (stcol <= endcol):  # Bin Search Condition
+ 
+        midcol = stcol + int((endcol - stcol) / 2)
+        ansrow = 0;
+        # "ansrow" To keep the row number of global Peak
+        # element of a column
+ 
+        # Finding the row number of Global Peak element in
+        # Mid Column.
+        for r in range(len(mat)):
+            ansrow = r if mat[r][midcol] >= mat[ansrow][midcol] else ansrow;
+         
+ 
+        # Finding next Search space will be left or right
+        valid_left =  midcol - 1 >= stcol and mat[ansrow][midcol - 1] > mat[ansrow][midcol];
+        valid_right = midcol + 1 <= endcol and mat[ansrow][midcol + 1] > mat[ansrow][midcol];
+ 
+        # if we're at Peak Element
+        if (not valid_left and not valid_right) :
+            return [ ansrow, midcol ];
+         
+ 
+        elif (valid_right):
+            stcol = midcol  + 1; # move the search space in right
+        else:
+            endcol = midcol  - 1; # move the search space in left
+     
+    return [ -1, -1 ];
+ 
+# Driver Code
+#arr = [[7, 8, 5], [9 ,8, 6], [3, 5, 0]];
+#result = findPeakGrid(arr);
+#print("Peak element found at index:", result)
+
+################## 
